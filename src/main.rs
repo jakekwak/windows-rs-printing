@@ -1,7 +1,8 @@
 use image::{ImageBuffer, Rgba, RgbaImage};
-use imageproc::drawing::draw_text_mut;
+use imageproc::drawing::{draw_line_segment_mut, draw_text_mut};
 use rusttype::{Font, Scale};
 use std::io::Error;
+use std::path::Path;
 use windows::core::{HSTRING, PCWSTR};
 use windows::Win32::Graphics::Gdi::{
     CreateDCW, DeleteDC, SetDIBitsToDevice, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS,
@@ -14,13 +15,14 @@ const RECEIPT_WIDTH_PIXELS: u32 = (RECEIPT_WIDTH_INCHES * DPI) as u32;
 
 fn main() -> Result<(), Error> {
     let width = RECEIPT_WIDTH_PIXELS;
-    let height = 2000;
+    let height = 1000;
     let mut img: RgbaImage = ImageBuffer::new(width, height);
     img.fill(255);
 
-    let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\K_malgun.ttf")).unwrap();
+    // Load Malgun Gothic fonts
+    let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\malgun.ttf")).unwrap();
     let font_bold =
-        Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\K_malgunbd.ttf")).unwrap();
+        Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\malgunbd.ttf")).unwrap();
 
     let mut y_offset = 10;
     let line_height = 15;
@@ -57,10 +59,24 @@ fn main() -> Result<(), Error> {
         *y += (line_height as f32 * DPI / 72.0) as i32;
     };
 
+    let add_line = |img: &mut RgbaImage, y: i32| {
+        draw_line_segment_mut(
+            img,
+            (10.0, y as f32),
+            ((width - 10) as f32, y as f32),
+            Rgba([0, 0, 0, 255]),
+        );
+    };
+
     // Add receipt content
     add_text(&mut img, "Kitchen #1", 14.0, true, &mut y_offset, true, 0);
+    y_offset += 5;
+    add_line(&mut img, y_offset);
+    y_offset += 5;
     add_text(&mut img, "TABLE M1", 12.0, true, &mut y_offset, true, 0);
     add_text(&mut img, "ORDER #1-1", 12.0, true, &mut y_offset, true, 0);
+    y_offset += 5;
+    add_line(&mut img, y_offset);
     y_offset += 5;
     add_text(
         &mut img,
@@ -71,6 +87,8 @@ fn main() -> Result<(), Error> {
         false,
         10,
     );
+    y_offset += 5;
+    add_line(&mut img, y_offset);
     y_offset += 5;
 
     add_text(
@@ -160,64 +178,81 @@ fn main() -> Result<(), Error> {
         0,
     );
 
-    // Printer setup
-    unsafe {
-        let printer_name = HSTRING::from("Receipt");
-        let hdc = CreateDCW(
-            PCWSTR::null(),
-            PCWSTR(printer_name.as_ptr()),
-            PCWSTR::null(),
-            None,
-        );
+    // Save image to file for debugging
+    let output_path = Path::new("receipt_debug.png");
+    img.save(output_path).expect("Failed to save debug image");
+    println!("Debug image saved to {:?}", output_path);
 
-        let doc_name = HSTRING::from("주문 영수증");
-        let mut doc_info = DOCINFOW {
-            cbSize: std::mem::size_of::<DOCINFOW>() as i32,
-            lpszDocName: PCWSTR(doc_name.as_ptr()),
-            lpszOutput: PCWSTR::null(),
-            lpszDatatype: PCWSTR::null(),
-            fwType: 0,
-        };
+    // Ask user if they want to print
+    println!("Do you want to print the receipt? (y/n)");
+    let mut user_input = String::new();
+    std::io::stdin()
+        .read_line(&mut user_input)
+        .expect("Failed to read line");
 
-        StartDocW(hdc, &mut doc_info);
-        StartPage(hdc);
+    if user_input.trim().to_lowercase() == "y" {
+        // Printer setup
+        unsafe {
+            let printer_name = HSTRING::from("Receipt");
+            let hdc = CreateDCW(
+                PCWSTR::null(),
+                PCWSTR(printer_name.as_ptr()),
+                PCWSTR::null(),
+                None,
+            );
 
-        let bmi = BITMAPINFO {
-            bmiHeader: BITMAPINFOHEADER {
-                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
-                biWidth: img.width() as i32,
-                biHeight: -(img.height() as i32),
-                biPlanes: 1,
-                biBitCount: 32,
-                biCompression: 0,
-                biSizeImage: 0,
-                biXPelsPerMeter: (DPI * 100.0 / 2.54) as i32,
-                biYPelsPerMeter: (DPI * 100.0 / 2.54) as i32,
-                biClrUsed: 0,
-                biClrImportant: 0,
-            },
-            bmiColors: [windows::Win32::Graphics::Gdi::RGBQUAD::default(); 1],
-        };
+            let doc_name = HSTRING::from("주문 영수증");
+            let mut doc_info = DOCINFOW {
+                cbSize: std::mem::size_of::<DOCINFOW>() as i32,
+                lpszDocName: PCWSTR(doc_name.as_ptr()),
+                lpszOutput: PCWSTR::null(),
+                lpszDatatype: PCWSTR::null(),
+                fwType: 0,
+            };
 
-        SetDIBitsToDevice(
-            hdc,
-            0,
-            0,
-            img.width(),
-            img.height(),
-            0,
-            0,
-            0,
-            img.height(),
-            img.as_raw().as_ptr() as _,
-            &bmi,
-            DIB_RGB_COLORS,
-        );
+            StartDocW(hdc, &mut doc_info);
+            StartPage(hdc);
 
-        EndPage(hdc);
-        EndDoc(hdc);
+            let bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: img.width() as i32,
+                    biHeight: -(img.height() as i32),
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: 0,
+                    biSizeImage: 0,
+                    biXPelsPerMeter: (DPI * 100.0 / 2.54) as i32,
+                    biYPelsPerMeter: (DPI * 100.0 / 2.54) as i32,
+                    biClrUsed: 0,
+                    biClrImportant: 0,
+                },
+                bmiColors: [windows::Win32::Graphics::Gdi::RGBQUAD::default(); 1],
+            };
 
-        let _ = DeleteDC(hdc); // Changed to remove warning
+            SetDIBitsToDevice(
+                hdc,
+                0,
+                0,
+                img.width(),
+                img.height(),
+                0,
+                0,
+                0,
+                img.height(),
+                img.as_raw().as_ptr() as _,
+                &bmi,
+                DIB_RGB_COLORS,
+            );
+
+            EndPage(hdc);
+            EndDoc(hdc);
+
+            let _ = DeleteDC(hdc);
+        }
+        println!("Receipt printed.");
+    } else {
+        println!("Printing cancelled.");
     }
 
     Ok(())
