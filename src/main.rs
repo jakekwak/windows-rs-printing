@@ -22,7 +22,8 @@ fn main() -> Result<(), Error> {
     draw_text_mut(&mut img, Rgba([0, 0, 0, 255]), 50, 50, scale, &font, text);
 
     // 이미지 파일 추가 (예: logo.png)
-    let logo = image::open("logo.png").unwrap().to_rgba8();
+    let mut logo = image::open("logo.png").unwrap().to_rgba8();
+    increase_contrast(&mut logo, 1.5);
     image::imageops::overlay(&mut img, &logo, 50, 100);
 
     // 프린터 설정
@@ -85,4 +86,13 @@ fn main() -> Result<(), Error> {
     }
 
     Ok(())
+}
+fn increase_contrast(image: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, factor: f32) {
+    for pixel in image.pixels_mut() {
+        for c in 0..3 {
+            let val = pixel[c] as f32;
+            let new_val = 128.0 + factor * (val - 128.0);
+            pixel[c] = new_val.max(0.0).min(255.0) as u8;
+        }
+    }
 }
