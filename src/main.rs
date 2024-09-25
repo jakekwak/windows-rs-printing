@@ -11,9 +11,10 @@ use windows::Win32::Storage::Xps::{EndDoc, EndPage, StartDocW, StartPage, DOCINF
 
 const DPI: f32 = 203.0;
 const RECEIPT_WIDTH_INCHES: f32 = 3.125;
-const RECEIPT_WIDTH_PIXELS: u32 = (RECEIPT_WIDTH_INCHES * DPI) as u32;
-const RIGHT_MARGIN: i32 = 10; // 오른쪽 여백 증가
-const LEFT_MARGIN: i32 = 10; // 왼쪽 여백 추가
+const CANVAS_WIDTH: u32 = (RECEIPT_WIDTH_INCHES * DPI) as u32;
+const PRINTABLE_WIDTH: u32 = CANVAS_WIDTH - 105; // 실제 프린트 가능 영역
+const RIGHT_MARGIN: i32 = 10;
+const LEFT_MARGIN: i32 = 10;
 
 struct PrintConfig {
     image_scale: f32,
@@ -23,10 +24,10 @@ struct PrintConfig {
 fn main() -> Result<(), Error> {
     let config = PrintConfig {
         image_scale: 1.0,
-        print_scale: 1.0,
+        print_scale: PRINTABLE_WIDTH as f32 / CANVAS_WIDTH as f32, // 프린트 시 스케일 조정
     };
 
-    let width = (RECEIPT_WIDTH_PIXELS as f32 * config.image_scale) as u32;
+    let width = CANVAS_WIDTH;
     let height = 1000;
     let mut img: RgbaImage = ImageBuffer::new(width, height);
     img.fill(255);
@@ -52,16 +53,10 @@ fn main() -> Result<(), Error> {
             .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
             .last()
             .unwrap_or(0.0);
-        println!(
-            "width: {} text_width: {} scale: {}",
-            width,
-            text_width,
-            size * DPI / 54.0
-        );
         let x = match align {
             TextAlign::Left => LEFT_MARGIN + indent,
-            TextAlign::Center => ((width as f32 - text_width) / 2.0) as i32,
-            TextAlign::Right => width as i32 - text_width as i32 - RIGHT_MARGIN - indent,
+            TextAlign::Center => ((PRINTABLE_WIDTH as f32 - text_width) / 2.0) as i32,
+            TextAlign::Right => PRINTABLE_WIDTH as i32 - text_width as i32 - RIGHT_MARGIN - indent,
         };
         draw_text_mut(img, Rgba([0, 0, 0, 255]), x, *y, scale, font_to_use, text);
         draw_text_mut(
@@ -80,7 +75,7 @@ fn main() -> Result<(), Error> {
         draw_line_segment_mut(
             img,
             (LEFT_MARGIN as f32, y as f32),
-            ((width - RIGHT_MARGIN as u32) as f32, y as f32),
+            ((PRINTABLE_WIDTH - RIGHT_MARGIN as u32) as f32, y as f32),
             Rgba([0, 0, 0, 255]),
         );
     };
@@ -91,8 +86,6 @@ fn main() -> Result<(), Error> {
         Center,
         Right,
     }
-
-    y_offset += 100;
 
     // Add receipt content
     add_text(
@@ -156,7 +149,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Avocado Eggrolls",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -165,7 +158,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "아보카도 에그롤",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -174,7 +167,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Make It Gluten Free",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -183,7 +176,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Diet Coke",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -192,7 +185,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Yes",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -201,7 +194,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 French Fries",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -210,7 +203,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "감자 튀김",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -219,7 +212,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Petite Filet",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -228,7 +221,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "뼈때 필레",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -237,7 +230,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Medium Rare",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -246,23 +239,27 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Make It Gluten Free",
         10.0,
-        true,
+        false,
         &mut y_offset,
         TextAlign::Left,
         10,
     );
-    y_offset += 5;
-    add_line(&mut img, y_offset);
-    y_offset += 40;
+
+    y_offset += 10;
     add_text(
         &mut img,
         "Printed 6:37 PM",
-        8.0,
+        10.0,
         false,
         &mut y_offset,
         TextAlign::Center,
         0,
     );
+
+    // 프린트 가능 영역 표시
+    for y in 0..height {
+        img.put_pixel(PRINTABLE_WIDTH as u32, y, Rgba([255, 0, 0, 255]));
+    }
 
     // Save image to file for debugging
     let output_path = Path::new("receipt_debug.png");
