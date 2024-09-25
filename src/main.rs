@@ -8,68 +8,161 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::Storage::Xps::{EndDoc, EndPage, StartDocW, StartPage, DOCINFOW};
 
+const DPI: f32 = 203.0;
+const RECEIPT_WIDTH_INCHES: f32 = 3.125;
+const RECEIPT_WIDTH_PIXELS: u32 = (RECEIPT_WIDTH_INCHES * DPI) as u32;
+
 fn main() -> Result<(), Error> {
-    // 이미지 생성 (영수증 크기에 맞게 조정)
-    // let mut img: RgbaImage = ImageBuffer::from_pixel(800, 600, Rgba([255, 255, 255, 255]));
-    let mut img: RgbaImage = ImageBuffer::new(800, 600);
+    let width = RECEIPT_WIDTH_PIXELS;
+    let height = 2000;
+    let mut img: RgbaImage = ImageBuffer::new(width, height);
     img.fill(255);
 
-    // 폰트 로드
     let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\K_malgun.ttf")).unwrap();
     let font_bold =
         Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\K_malgunbd.ttf")).unwrap();
 
-    // 텍스트 추가 함수
     let mut y_offset = 10;
-    let line_height = 20;
+    let line_height = 15;
 
-    let mut add_text = |text: &str, size: f32, is_bold: bool, y: &mut i32| {
-        let scale = Scale::uniform(size);
+    let add_text = |img: &mut RgbaImage,
+                    text: &str,
+                    size: f32,
+                    is_bold: bool,
+                    y: &mut i32,
+                    center: bool,
+                    indent: i32| {
+        let scale = Scale::uniform(size * DPI / 54.0);
         let font_to_use = if is_bold { &font_bold } else { &font };
+        let text_width = font_to_use
+            .layout(text, scale, rusttype::point(0.0, 0.0))
+            .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
+            .last()
+            .unwrap_or(0.0);
+        let x = if center {
+            ((width as f32 - text_width) / 2.0) as i32
+        } else {
+            indent
+        };
+        draw_text_mut(img, Rgba([0, 0, 0, 255]), x, *y, scale, font_to_use, text);
         draw_text_mut(
-            &mut img,
+            img,
             Rgba([0, 0, 0, 255]),
-            10,
+            x + 1,
             *y,
             scale,
             font_to_use,
             text,
         );
-        *y += line_height;
+        *y += (line_height as f32 * DPI / 72.0) as i32;
     };
 
-    // 영수증 내용 추가
-    add_text("Kitchen #1", 16.0, true, &mut y_offset);
-    y_offset += 20;
-    add_text("TABLE M1", 14.0, true, &mut y_offset);
-    add_text("ORDER #1-1", 14.0, true, &mut y_offset);
-    y_offset += 20;
+    // Add receipt content
+    add_text(&mut img, "Kitchen #1", 14.0, true, &mut y_offset, true, 0);
+    add_text(&mut img, "TABLE M1", 12.0, true, &mut y_offset, true, 0);
+    add_text(&mut img, "ORDER #1-1", 12.0, true, &mut y_offset, true, 0);
+    y_offset += 5;
     add_text(
+        &mut img,
         "Invoice #1    Mon, 9/23/2024 6:37 PM",
-        12.0,
+        10.0,
         false,
         &mut y_offset,
+        false,
+        10,
     );
-    y_offset += 20;
+    y_offset += 5;
 
-    add_text("1 Avocado Eggrolls", 12.0, false, &mut y_offset);
-    add_text("아보카도 에그롤", 12.0, false, &mut y_offset);
-    add_text("1 Make It Gluten Free", 12.0, false, &mut y_offset);
-    add_text("1 Diet Coke", 12.0, false, &mut y_offset);
-    add_text("1 Yes", 12.0, false, &mut y_offset);
-    add_text("1 French Fries", 12.0, false, &mut y_offset);
-    add_text("감자 튀김", 12.0, false, &mut y_offset);
-    add_text("1 Petite Filet", 12.0, false, &mut y_offset);
-    add_text("뼈때 필레", 12.0, false, &mut y_offset);
-    add_text("1 Medium Rare", 12.0, false, &mut y_offset);
-    add_text("1 Make It Gluten Free", 12.0, false, &mut y_offset);
+    add_text(
+        &mut img,
+        "1 Avocado Eggrolls",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        10,
+    );
+    add_text(
+        &mut img,
+        "아보카도 에그롤",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        20,
+    );
+    add_text(
+        &mut img,
+        "1 Make It Gluten Free",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        20,
+    );
+    add_text(
+        &mut img,
+        "1 Diet Coke",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        10,
+    );
+    add_text(&mut img, "1 Yes", 10.0, false, &mut y_offset, false, 20);
+    add_text(
+        &mut img,
+        "1 French Fries",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        10,
+    );
+    add_text(&mut img, "감자 튀김", 10.0, false, &mut y_offset, false, 20);
+    add_text(
+        &mut img,
+        "1 Petite Filet",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        10,
+    );
+    add_text(&mut img, "뼈때 필레", 10.0, false, &mut y_offset, false, 20);
+    add_text(
+        &mut img,
+        "1 Medium Rare",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        20,
+    );
+    add_text(
+        &mut img,
+        "1 Make It Gluten Free",
+        10.0,
+        false,
+        &mut y_offset,
+        false,
+        20,
+    );
 
-    y_offset += 40;
-    add_text("Printed 6:37 PM", 12.0, false, &mut y_offset);
+    y_offset += 10;
+    add_text(
+        &mut img,
+        "Printed 6:37 PM",
+        10.0,
+        false,
+        &mut y_offset,
+        true,
+        0,
+    );
 
-    // 프린터 설정
+    // Printer setup
     unsafe {
-        let printer_name = HSTRING::from("Receipt"); // 프린터 이름을 적절히 변경하세요
+        let printer_name = HSTRING::from("Receipt");
         let hdc = CreateDCW(
             PCWSTR::null(),
             PCWSTR(printer_name.as_ptr()),
@@ -89,7 +182,6 @@ fn main() -> Result<(), Error> {
         StartDocW(hdc, &mut doc_info);
         StartPage(hdc);
 
-        // 이미지를 프린터로 전송
         let bmi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
                 biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
@@ -99,8 +191,8 @@ fn main() -> Result<(), Error> {
                 biBitCount: 32,
                 biCompression: 0,
                 biSizeImage: 0,
-                biXPelsPerMeter: 0,
-                biYPelsPerMeter: 0,
+                biXPelsPerMeter: (DPI * 100.0 / 2.54) as i32,
+                biYPelsPerMeter: (DPI * 100.0 / 2.54) as i32,
                 biClrUsed: 0,
                 biClrImportant: 0,
             },
@@ -125,8 +217,7 @@ fn main() -> Result<(), Error> {
         EndPage(hdc);
         EndDoc(hdc);
 
-        // 리소스 해제
-        DeleteDC(hdc);
+        let _ = DeleteDC(hdc); // Changed to remove warning
     }
 
     Ok(())
