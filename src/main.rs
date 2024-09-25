@@ -1,34 +1,75 @@
-use image::{ImageBuffer, Rgba};
+use image::{ImageBuffer, Rgba, RgbaImage};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
 use std::io::Error;
 use windows::core::{HSTRING, PCWSTR};
 use windows::Win32::Graphics::Gdi::{
-    CreateDCW, SetDIBitsToDevice, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS,
+    CreateDCW, DeleteDC, SetDIBitsToDevice, BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS,
 };
 use windows::Win32::Storage::Xps::{EndDoc, EndPage, StartDocW, StartPage, DOCINFOW};
 
 fn main() -> Result<(), Error> {
-    // 이미지 생성
-    let mut img = ImageBuffer::new(900, 600);
+    // 이미지 생성 (영수증 크기에 맞게 조정)
+    // let mut img: RgbaImage = ImageBuffer::from_pixel(800, 600, Rgba([255, 255, 255, 255]));
+    let mut img: RgbaImage = ImageBuffer::new(800, 600);
     img.fill(255);
 
-    // 텍스트 추가
-    let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\K_malgunbd.ttf")).unwrap();
-    let scale = Scale::uniform(32.0);
-    let text = "안녕하세요, Rust로 프린트합니다!";
+    // 폰트 로드
+    let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\K_malgun.ttf")).unwrap();
+    let font_bold =
+        Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\K_malgunbd.ttf")).unwrap();
 
-    // let text_size = text_size(scale, &font, text);
-    draw_text_mut(&mut img, Rgba([0, 0, 0, 255]), 50, 50, scale, &font, text);
+    // 텍스트 추가 함수
+    let mut y_offset = 10;
+    let line_height = 20;
 
-    // 이미지 파일 추가 (예: logo.png)
-    let mut logo = image::open("logo.png").unwrap().to_rgba8();
-    increase_contrast(&mut logo, 1.5);
-    image::imageops::overlay(&mut img, &logo, 50, 100);
+    let mut add_text = |text: &str, size: f32, is_bold: bool, y: &mut i32| {
+        let scale = Scale::uniform(size);
+        let font_to_use = if is_bold { &font_bold } else { &font };
+        draw_text_mut(
+            &mut img,
+            Rgba([0, 0, 0, 255]),
+            10,
+            *y,
+            scale,
+            font_to_use,
+            text,
+        );
+        *y += line_height;
+    };
+
+    // 영수증 내용 추가
+    add_text("Kitchen #1", 16.0, true, &mut y_offset);
+    y_offset += 20;
+    add_text("TABLE M1", 14.0, true, &mut y_offset);
+    add_text("ORDER #1-1", 14.0, true, &mut y_offset);
+    y_offset += 20;
+    add_text(
+        "Invoice #1    Mon, 9/23/2024 6:37 PM",
+        12.0,
+        false,
+        &mut y_offset,
+    );
+    y_offset += 20;
+
+    add_text("1 Avocado Eggrolls", 12.0, false, &mut y_offset);
+    add_text("아보카도 에그롤", 12.0, false, &mut y_offset);
+    add_text("1 Make It Gluten Free", 12.0, false, &mut y_offset);
+    add_text("1 Diet Coke", 12.0, false, &mut y_offset);
+    add_text("1 Yes", 12.0, false, &mut y_offset);
+    add_text("1 French Fries", 12.0, false, &mut y_offset);
+    add_text("감자 튀김", 12.0, false, &mut y_offset);
+    add_text("1 Petite Filet", 12.0, false, &mut y_offset);
+    add_text("뼈때 필레", 12.0, false, &mut y_offset);
+    add_text("1 Medium Rare", 12.0, false, &mut y_offset);
+    add_text("1 Make It Gluten Free", 12.0, false, &mut y_offset);
+
+    y_offset += 40;
+    add_text("Printed 6:37 PM", 12.0, false, &mut y_offset);
 
     // 프린터 설정
     unsafe {
-        let printer_name = HSTRING::from("Receipt");
+        let printer_name = HSTRING::from("Receipt"); // 프린터 이름을 적절히 변경하세요
         let hdc = CreateDCW(
             PCWSTR::null(),
             PCWSTR(printer_name.as_ptr()),
@@ -36,7 +77,7 @@ fn main() -> Result<(), Error> {
             None,
         );
 
-        let doc_name = HSTRING::from("Rust 프린트 작업");
+        let doc_name = HSTRING::from("주문 영수증");
         let mut doc_info = DOCINFOW {
             cbSize: std::mem::size_of::<DOCINFOW>() as i32,
             lpszDocName: PCWSTR(doc_name.as_ptr()),
@@ -83,16 +124,10 @@ fn main() -> Result<(), Error> {
 
         EndPage(hdc);
         EndDoc(hdc);
+
+        // 리소스 해제
+        DeleteDC(hdc);
     }
 
     Ok(())
-}
-fn increase_contrast(image: &mut ImageBuffer<Rgba<u8>, Vec<u8>>, factor: f32) {
-    for pixel in image.pixels_mut() {
-        for c in 0..3 {
-            let val = pixel[c] as f32;
-            let new_val = 128.0 + factor * (val - 128.0);
-            pixel[c] = new_val.max(0.0).min(255.0) as u8;
-        }
-    }
 }
