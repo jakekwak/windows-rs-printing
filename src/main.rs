@@ -12,7 +12,7 @@ use windows::Win32::Storage::Xps::{EndDoc, EndPage, StartDocW, StartPage, DOCINF
 const DPI: f32 = 203.0;
 const RECEIPT_WIDTH_INCHES: f32 = 3.125;
 const RECEIPT_WIDTH_PIXELS: u32 = (RECEIPT_WIDTH_INCHES * DPI) as u32;
-const RIGHT_MARGIN: i32 = 40; // 오른쪽 여백 증가
+const RIGHT_MARGIN: i32 = 10; // 오른쪽 여백 증가
 const LEFT_MARGIN: i32 = 10; // 왼쪽 여백 추가
 
 struct PrintConfig {
@@ -23,7 +23,7 @@ struct PrintConfig {
 fn main() -> Result<(), Error> {
     let config = PrintConfig {
         image_scale: 1.0,
-        print_scale: 0.9,
+        print_scale: 1.0,
     };
 
     let width = (RECEIPT_WIDTH_PIXELS as f32 * config.image_scale) as u32;
@@ -52,6 +52,12 @@ fn main() -> Result<(), Error> {
             .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
             .last()
             .unwrap_or(0.0);
+        println!(
+            "width: {} text_width: {} scale: {}",
+            width,
+            text_width,
+            size * DPI / 54.0
+        );
         let x = match align {
             TextAlign::Left => LEFT_MARGIN + indent,
             TextAlign::Center => ((width as f32 - text_width) / 2.0) as i32,
@@ -85,6 +91,8 @@ fn main() -> Result<(), Error> {
         Center,
         Right,
     }
+
+    y_offset += 100;
 
     // Add receipt content
     add_text(
@@ -148,7 +156,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Avocado Eggrolls",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -157,7 +165,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "아보카도 에그롤",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -166,7 +174,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Make It Gluten Free",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -175,7 +183,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Diet Coke",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -184,7 +192,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Yes",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -193,7 +201,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 French Fries",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -202,7 +210,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "감자 튀김",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -211,7 +219,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Petite Filet",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         0,
@@ -220,7 +228,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "뼈때 필레",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -229,7 +237,7 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Medium Rare",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         10,
@@ -238,17 +246,18 @@ fn main() -> Result<(), Error> {
         &mut img,
         "1 Make It Gluten Free",
         10.0,
-        false,
+        true,
         &mut y_offset,
         TextAlign::Left,
         10,
     );
-
-    y_offset += 10;
+    y_offset += 5;
+    add_line(&mut img, y_offset);
+    y_offset += 40;
     add_text(
         &mut img,
         "Printed 6:37 PM",
-        10.0,
+        8.0,
         false,
         &mut y_offset,
         TextAlign::Center,
