@@ -21,10 +21,17 @@ struct PrintConfig {
     print_scale: f32,
 }
 
+#[derive(Copy, Clone)]
+enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
+
 fn main() -> Result<(), Error> {
     let config = PrintConfig {
         image_scale: 1.0,
-        print_scale: PRINTABLE_WIDTH as f32 / CANVAS_WIDTH as f32, // 프린트 시 스케일 조정
+        print_scale: PRINTABLE_WIDTH as f32 / CANVAS_WIDTH as f32,
     };
 
     let width = CANVAS_WIDTH;
@@ -32,83 +39,42 @@ fn main() -> Result<(), Error> {
     let mut img: RgbaImage = ImageBuffer::new(width, height);
     img.fill(255);
 
-    let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\malgun.ttf")).unwrap();
+    let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\arial.ttf")).unwrap();
+    // ariblk.ttf  arialbd.ttf arial.ttf
     let font_bold =
-        Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\malgunbd.ttf")).unwrap();
+        Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\arialbd.ttf")).unwrap();
+    // let font = Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\malgun.ttf")).unwrap();
+    // let font_bold =
+    //     Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\malgunbd.ttf")).unwrap();
 
     let mut y_offset = 10;
 
-    let add_text = |img: &mut RgbaImage,
-                    text: &str,
-                    size: f32,
-                    is_bold: bool,
-                    y: &mut i32,
-                    align: TextAlign,
-                    indent: i32| {
-        let scale = Scale::uniform(size * DPI / 54.0 * config.image_scale);
-        let font_to_use = if is_bold { &font_bold } else { &font };
-        let text_width = font_to_use
-            .layout(text, scale, rusttype::point(0.0, 0.0))
-            .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
-            .last()
-            .unwrap_or(0.0);
-        let x = match align {
-            TextAlign::Left => LEFT_MARGIN + indent,
-            TextAlign::Center => ((PRINTABLE_WIDTH as f32 - text_width) / 2.0) as i32,
-            TextAlign::Right => PRINTABLE_WIDTH as i32 - text_width as i32 - RIGHT_MARGIN - indent,
-        };
-        draw_text_mut(img, Rgba([0, 0, 0, 255]), x, *y, scale, font_to_use, text);
-        draw_text_mut(
-            img,
-            Rgba([0, 0, 0, 255]),
-            x + 1,
-            *y,
-            scale,
-            font_to_use,
-            text,
-        );
-
-        // Calculate the new y_offset based on the font size
-        let line_height = (size * DPI / 54.0 * config.image_scale) as i32;
-        *y += line_height;
-    };
-
-    let add_line = |img: &mut RgbaImage, y: i32| {
-        draw_line_segment_mut(
-            img,
-            (LEFT_MARGIN as f32, y as f32),
-            ((PRINTABLE_WIDTH - RIGHT_MARGIN as u32) as f32, y as f32),
-            Rgba([0, 0, 0, 255]),
-        );
-    };
-
-    #[derive(Copy, Clone)]
-    enum TextAlign {
-        Left,
-        Center,
-        Right,
-    }
-
-    // Add receipt content with dynamic y_offset
+    // Add receipt content
     add_text(
         &mut img,
         "M1",
-        40.0,
+        36.0,
         true,
         &mut y_offset,
         TextAlign::Center,
         0,
+        &config,
+        &font,
+        &font_bold,
     );
-    y_offset += 10; // Add a little extra space after the large title
+    y_offset += 20; // Add a little extra space after the large title
 
     add_text(
         &mut img,
         "SERVER REQUEST",
-        18.0,
+        16.0,
         true,
         &mut y_offset,
         TextAlign::Center,
         0,
+        &config,
+        &font,
+        &font_bold,
     );
     y_offset += 10; // Add a little extra space after the subtitle
 
@@ -120,6 +86,9 @@ fn main() -> Result<(), Error> {
         &mut y_offset,
         TextAlign::Center,
         0,
+        &config,
+        &font,
+        &font_bold,
     );
     add_text(
         &mut img,
@@ -129,6 +98,9 @@ fn main() -> Result<(), Error> {
         &mut y_offset,
         TextAlign::Center,
         0,
+        &config,
+        &font,
+        &font_bold,
     );
     add_text(
         &mut img,
@@ -138,6 +110,9 @@ fn main() -> Result<(), Error> {
         &mut y_offset,
         TextAlign::Center,
         0,
+        &config,
+        &font,
+        &font_bold,
     );
     add_text(
         &mut img,
@@ -147,6 +122,9 @@ fn main() -> Result<(), Error> {
         &mut y_offset,
         TextAlign::Center,
         0,
+        &config,
+        &font,
+        &font_bold,
     );
 
     y_offset += 20; // Add some space before the "Thank You" message
@@ -158,33 +136,91 @@ fn main() -> Result<(), Error> {
         &mut y_offset,
         TextAlign::Center,
         0,
+        &config,
+        &font,
+        &font_bold,
     );
 
-    // 프린트 가능 영역 표시
-    for y in 0..height {
-        img.put_pixel(PRINTABLE_WIDTH as u32, y, Rgba([255, 0, 0, 255]));
-    }
+    // Add line
+    add_line(&mut img, y_offset);
 
     // Save image to file for debugging
-    let output_path = Path::new("receipt_debug.png");
-    img.save(output_path).expect("Failed to save debug image");
-    println!("Debug image saved to {:?}", output_path);
+    save_debug_image(&img, "receipt_debug.png")?;
 
     // Ask user if they want to print
-    print!("Do you want to print the receipt? (y/n): ");
-    io::stdout().flush().unwrap();
-    let mut user_input = String::new();
-    io::stdin()
-        .read_line(&mut user_input)
-        .expect("Failed to read line");
-
-    if user_input.trim().to_lowercase() == "y" {
+    if ask_to_print() {
         print_receipt(&img, &config)?;
     } else {
         println!("Printing cancelled.");
     }
 
     Ok(())
+}
+
+fn add_text(
+    img: &mut RgbaImage,
+    text: &str,
+    size: f32,
+    is_bold: bool,
+    y: &mut i32,
+    align: TextAlign,
+    indent: i32,
+    config: &PrintConfig,
+    font: &Font,
+    font_bold: &Font,
+) {
+    let scale = Scale::uniform(size * DPI / 54.0 * config.image_scale);
+    let font_to_use = if is_bold { font_bold } else { font };
+    let text_width = font_to_use
+        .layout(text, scale, rusttype::point(0.0, 0.0))
+        .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
+        .last()
+        .unwrap_or(0.0);
+    let x = match align {
+        TextAlign::Left => LEFT_MARGIN + indent,
+        TextAlign::Center => ((PRINTABLE_WIDTH as f32 - text_width) / 2.0) as i32,
+        TextAlign::Right => PRINTABLE_WIDTH as i32 - text_width as i32 - RIGHT_MARGIN - indent,
+    };
+    draw_text_mut(img, Rgba([0, 0, 0, 255]), x, *y, scale, font_to_use, text);
+    draw_text_mut(
+        img,
+        Rgba([0, 0, 0, 255]),
+        x + 1,
+        *y,
+        scale,
+        font_to_use,
+        text,
+    );
+
+    // Calculate the new y_offset based on the font size
+    let line_height = (size * DPI / 54.0 * config.image_scale) as i32;
+    *y += line_height;
+}
+
+fn add_line(img: &mut RgbaImage, y: i32) {
+    draw_line_segment_mut(
+        img,
+        (LEFT_MARGIN as f32, y as f32),
+        ((PRINTABLE_WIDTH - RIGHT_MARGIN as u32) as f32, y as f32),
+        Rgba([0, 0, 0, 255]),
+    );
+}
+
+fn save_debug_image(img: &RgbaImage, filename: &str) -> Result<(), Error> {
+    let output_path = Path::new(filename);
+    img.save(output_path).expect("Failed to save debug image");
+    println!("Debug image saved to {:?}", output_path);
+    Ok(())
+}
+
+fn ask_to_print() -> bool {
+    print!("Do you want to print the receipt? (y/n): ");
+    io::stdout().flush().unwrap();
+    let mut user_input = String::new();
+    io::stdin()
+        .read_line(&mut user_input)
+        .expect("Failed to read line");
+    user_input.trim().to_lowercase() == "y"
 }
 
 fn print_receipt(img: &RgbaImage, config: &PrintConfig) -> Result<(), Error> {
