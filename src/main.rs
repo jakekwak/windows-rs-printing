@@ -37,7 +37,6 @@ fn main() -> Result<(), Error> {
         Font::try_from_bytes(include_bytes!("C:\\Windows\\Fonts\\malgunbd.ttf")).unwrap();
 
     let mut y_offset = 10;
-    let line_height = 15;
 
     let add_text = |img: &mut RgbaImage,
                     text: &str,
@@ -68,7 +67,10 @@ fn main() -> Result<(), Error> {
             font_to_use,
             text,
         );
-        *y += (line_height as f32 * DPI / 72.0 * config.image_scale) as i32;
+
+        // Calculate the new y_offset based on the font size
+        let line_height = (size * DPI / 54.0 * config.image_scale) as i32;
+        *y += line_height;
     };
 
     let add_line = |img: &mut RgbaImage, y: i32| {
@@ -87,23 +89,42 @@ fn main() -> Result<(), Error> {
         Right,
     }
 
-    // Add receipt content
+    // Add receipt content with dynamic y_offset
     add_text(
         &mut img,
-        "Kitchen #1",
+        "M1",
+        40.0,
+        true,
+        &mut y_offset,
+        TextAlign::Center,
+        0,
+    );
+    y_offset += 10; // Add a little extra space after the large title
+
+    add_text(
+        &mut img,
+        "SERVER REQUEST",
+        18.0,
+        true,
+        &mut y_offset,
+        TextAlign::Center,
+        0,
+    );
+    y_offset += 10; // Add a little extra space after the subtitle
+
+    add_text(
+        &mut img,
+        "CHANGE GRILL",
         14.0,
         true,
         &mut y_offset,
         TextAlign::Center,
         0,
     );
-    y_offset += 5;
-    add_line(&mut img, y_offset);
-    y_offset += 5;
     add_text(
         &mut img,
-        "TABLE M1",
-        12.0,
+        "2 ICE WATER",
+        14.0,
         true,
         &mut y_offset,
         TextAlign::Center,
@@ -111,146 +132,29 @@ fn main() -> Result<(), Error> {
     );
     add_text(
         &mut img,
-        "ORDER #1-1",
-        12.0,
+        "2 DISHES",
+        14.0,
         true,
         &mut y_offset,
         TextAlign::Center,
         0,
     );
-    y_offset += 5;
-    add_line(&mut img, y_offset);
-    y_offset += 5;
-
     add_text(
         &mut img,
-        "Invoice #1",
-        8.0,
-        false,
+        "2 WET TOWELS",
+        14.0,
+        true,
         &mut y_offset,
-        TextAlign::Left,
+        TextAlign::Center,
         0,
-    );
-    y_offset -= (line_height as f32 * DPI / 72.0 * config.image_scale) as i32;
-    add_text(
-        &mut img,
-        "Mon, 9/23/2024 6:37 PM",
-        8.0,
-        false,
-        &mut y_offset,
-        TextAlign::Right,
-        0,
-    );
-    y_offset += 5;
-    add_line(&mut img, y_offset);
-    y_offset += 5;
-
-    add_text(
-        &mut img,
-        "1 Avocado Eggrolls",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        0,
-    );
-    add_text(
-        &mut img,
-        "아보카도 에그롤",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        10,
-    );
-    add_text(
-        &mut img,
-        "1 Make It Gluten Free",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        10,
-    );
-    add_text(
-        &mut img,
-        "1 Diet Coke",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        0,
-    );
-    add_text(
-        &mut img,
-        "1 Yes",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        10,
-    );
-    add_text(
-        &mut img,
-        "1 French Fries",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        0,
-    );
-    add_text(
-        &mut img,
-        "감자 튀김",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        10,
-    );
-    add_text(
-        &mut img,
-        "1 Petite Filet",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        0,
-    );
-    add_text(
-        &mut img,
-        "뼈때 필레",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        10,
-    );
-    add_text(
-        &mut img,
-        "1 Medium Rare",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        10,
-    );
-    add_text(
-        &mut img,
-        "1 Make It Gluten Free",
-        10.0,
-        false,
-        &mut y_offset,
-        TextAlign::Left,
-        10,
     );
 
-    y_offset += 10;
+    y_offset += 20; // Add some space before the "Thank You" message
     add_text(
         &mut img,
-        "Printed 6:37 PM",
-        10.0,
-        false,
+        "Thank You",
+        12.0,
+        true,
         &mut y_offset,
         TextAlign::Center,
         0,
